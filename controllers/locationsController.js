@@ -1,5 +1,5 @@
 import { ref as dbRef, remove, update } from "firebase/database";
-import app, { realtimeDbOFL } from "../lib/firebase/firebaseConfig.js";
+import app, { authenticate, realtimeDbOFL } from "../lib/firebase/firebaseConfig.js";
 import {
   doc,
   getFirestore,
@@ -76,6 +76,7 @@ export const updateCurrentLocations = async (req, res, next) => {
 
       console.log(`Attempting to update Firestore document for user: ${email}`); // Log before Firestore update
 
+      await authenticate();
       await updateDoc(doc(db, "users", email), {
         lastActiveTime: serverTimestamp(),
         permissions: true,
