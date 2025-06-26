@@ -235,12 +235,12 @@ const sendPodPdf = async (req, res, next) => {
     const pageWidth = pdfDoc.page.width;
     const pageHeight = pdfDoc.page.height;
     const margin = 40;
-    const contentWidth = pageWidth - (margin * 2);
+    const contentWidth = pageWidth - margin * 2;
 
     // Helper function to add section divider
     const addSectionDivider = (y) => {
       pdfDoc
-        .strokeColor('#e0e0e0')
+        .strokeColor("#e0e0e0")
         .lineWidth(1)
         .moveTo(margin, y)
         .lineTo(pageWidth - margin, y)
@@ -250,29 +250,17 @@ const sendPodPdf = async (req, res, next) => {
     // Helper function to add professional header
     const addHeader = () => {
       // Header background
-      pdfDoc
-        .fillColor('#2c3e50')
-        .rect(0, 0, pageWidth, 100)
-        .fill();
+      pdfDoc.fillColor("#2c3e50").rect(0, 0, pageWidth, 100).fill();
 
       // Main title
       pdfDoc
-        .fillColor('#ffffff')
+        .fillColor("#ffffff")
         .fontSize(24)
-        .font('Helvetica-Bold')
-        .text('DTS', margin, 30, {
-          align: 'center',
-          width: contentWidth
+        .font("Helvetica-Bold")
+        .text("Direct Transport Solution", margin, 30, {
+          align: "center",
+          width: contentWidth,
         });
-
-      // Company info in header
-      pdfDoc
-        .fontSize(10)
-        .font('Helvetica')
-        .text('Direct Transport Solutions', pageWidth - 200, 20)
-        .text('bookings@directtransport.com.au', pageWidth - 200, 35)
-        // .text('ABN: XX XXX XXX XXX', pageWidth - 200, 35)
-        // .text('1300 XXX XXX', pageWidth - 200, 65);
 
       return 120; // Return Y position after header
     };
@@ -280,52 +268,54 @@ const sendPodPdf = async (req, res, next) => {
     // Helper function to add section title
     const addSectionTitle = (title, y) => {
       pdfDoc
-        .fillColor('#2c3e50')
+        .fillColor("#2c3e50")
         .fontSize(16)
-        .font('Helvetica-Bold')
+        .font("Helvetica-Bold")
         .text(title, margin, y);
-      
+
       // Add underline
       pdfDoc
-        .strokeColor('#3498db')
+        .strokeColor("#3498db")
         .lineWidth(2)
         .moveTo(margin, y + 20)
         .lineTo(margin + pdfDoc.widthOfString(title), y + 20)
         .stroke();
-      
+
       return y + 35;
     };
 
     // Helper function to add key-value pairs in a clean format
     const addKeyValuePairs = (pairs, startY) => {
       let currentY = startY;
-      
+
       pdfDoc
-        .fillColor('#f8f9fa')
+        .fillColor("#f8f9fa")
         .rect(margin, currentY - 5, contentWidth, pairs.length * 25 + 10)
         .fill()
-        .strokeColor('#e9ecef')
+        .strokeColor("#e9ecef")
         .rect(margin, currentY - 5, contentWidth, pairs.length * 25 + 10)
         .stroke();
 
       pairs.forEach((pair, index) => {
-        const bgColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-        
+        const bgColor = index % 2 === 0 ? "#ffffff" : "#f8f9fa";
+
         pdfDoc
           .fillColor(bgColor)
           .rect(margin + 1, currentY - 2, contentWidth - 2, 22)
           .fill();
 
         pdfDoc
-          .fillColor('#2c3e50')
+          .fillColor("#2c3e50")
           .fontSize(11)
-          .font('Helvetica-Bold')
-          .text(pair.label + ':', margin + 15, currentY, { width: 150 });
+          .font("Helvetica-Bold")
+          .text(pair.label + ":", margin + 15, currentY, { width: 150 });
 
         pdfDoc
-          .fillColor('#333333')
-          .font('Helvetica')
-          .text(pair.value, margin + 180, currentY, { width: contentWidth - 195 });
+          .fillColor("#333333")
+          .font("Helvetica")
+          .text(pair.value, margin + 180, currentY, {
+            width: contentWidth - 195,
+          });
 
         currentY += 22;
       });
@@ -338,64 +328,35 @@ const sendPodPdf = async (req, res, next) => {
 
     // Booking ID highlight box
     pdfDoc
-      .fillColor('#e8f4fc')
+      .fillColor("#e8f4fc")
       .rect(margin, currentY, contentWidth, 40)
       .fill()
-      .strokeColor('#3498db')
+      .strokeColor("#3498db")
       .rect(margin, currentY, contentWidth, 40)
       .stroke();
 
     pdfDoc
-      .fillColor('#2c3e50')
+      .fillColor("#2c3e50")
       .fontSize(14)
-      .font('Helvetica-Bold')
+      .font("Helvetica-Bold")
       .text(`Booking ID: ${booking.docId}`, margin, currentY + 12, {
-        align: 'center',
-        width: contentWidth
+        align: "center",
+        width: contentWidth,
       });
 
     currentY += 60;
 
     // Booking Details Section
-    currentY = addSectionTitle('Booking Details', currentY);
+    currentY = addSectionTitle("Booking Details", currentY);
 
     const bookingDetails = [
-      { label: 'Customer Name', value: booking.userName },
-      { label: 'Customer Email', value: booking.userEmail },
-      { label: 'Booking Date', value: `${booking.date} at ${booking.time}` },
-      { label: 'Service Type', value: booking.service },
-      { label: 'Distance', value: `${booking.distance} km` },
-      { label: 'Total Amount (Incl. GST)', value: `$${booking.totalPriceWithGST}` },
+      { label: "Customer Name", value: booking.userName },
+      { label: "Customer Email", value: booking.userEmail },
+      { label: "Booking Date", value: `${booking.date} at ${booking.time}` },
     ];
 
     currentY = addKeyValuePairs(bookingDetails, currentY);
     currentY += 20;
-
-    // Location Details Section
-    currentY = addSectionTitle('Location Details', currentY);
-
-    const locationDetails = [
-      {
-        label: 'Pickup Location',
-        value: [
-          booking.pickupCompanyName,
-          booking.pickupStreetAddress,
-          booking.pickupSuburb,
-          booking.pickupPostcode,
-        ].filter(Boolean).join(', ')
-      },
-      {
-        label: 'Delivery Location',
-        value: [
-          booking.dropCompanyName,
-          booking.dropStreetAddress,
-          booking.deliverySuburb,
-          booking.deliveryPostcode,
-        ].filter(Boolean).join(', ')
-      },
-    ];
-
-    currentY = addKeyValuePairs(locationDetails, currentY);
 
     // Customer Signature Section
     if (booking.signUrl) {
@@ -406,14 +367,14 @@ const sendPodPdf = async (req, res, next) => {
       }
 
       currentY += 30;
-      currentY = addSectionTitle('Customer Signature', currentY);
+      currentY = addSectionTitle("Customer Signature", currentY);
 
       try {
         const signBuffer = await fetchImageBuffer(booking.signUrl);
-        
+
         // Create signature box
         pdfDoc
-          .strokeColor('#e0e0e0')
+          .strokeColor("#e0e0e0")
           .lineWidth(1)
           .rect(margin, currentY, contentWidth, 120)
           .stroke();
@@ -421,30 +382,26 @@ const sendPodPdf = async (req, res, next) => {
         // Add signature image with proper sizing
         pdfDoc.image(signBuffer, margin + 20, currentY + 10, {
           fit: [contentWidth - 40, 80],
-          align: 'center',
-          valign: 'center'
+          align: "center",
+          valign: "center",
         });
 
         currentY += 130;
 
         // Signature details
         pdfDoc
-          .fillColor('#666666')
+          .fillColor("#666666")
           .fontSize(10)
-          .font('Helvetica')
-          .text('Digitally signed by:', margin, currentY)
-          .font('Helvetica-Bold')
-          .text(booking.userName, margin, currentY + 15)
-          .font('Helvetica')
-          .text(`Date: ${new Date().toLocaleDateString()}`, margin, currentY + 30)
-          .text(`Time: ${new Date().toLocaleTimeString()}`, margin, currentY + 45);
-
+          .font("Helvetica")
+          .text("Digitally signed by:", margin, currentY)
+          .font("Helvetica-Bold")
+          .text(booking.userName, margin, currentY + 15);
       } catch (err) {
-        console.warn('Signature failed to load:', err.message);
+        console.warn("Signature failed to load:", err.message);
         pdfDoc
-          .fillColor('#ff6b6b')
+          .fillColor("#ff6b6b")
           .fontSize(12)
-          .text('Signature could not be loaded', margin, currentY);
+          .text("Signature could not be loaded", margin, currentY);
       }
     }
 
@@ -452,28 +409,28 @@ const sendPodPdf = async (req, res, next) => {
     if (Array.isArray(booking.images) && booking.images.length > 0) {
       pdfDoc.addPage();
       currentY = 50;
-      
-      currentY = addSectionTitle('Proof of Delivery Images', currentY);
+
+      currentY = addSectionTitle("Proof of Delivery Images", currentY);
 
       const imagesPerRow = 2;
       const imageWidth = (contentWidth - 20) / imagesPerRow;
       const imageHeight = imageWidth * 0.75; // 4:3 aspect ratio
-      
+
       let imageCount = 0;
       let rowY = currentY;
 
       for (const [index, url] of booking.images.entries()) {
         try {
           const imgBuffer = await fetchImageBuffer(url);
-          
+
           const col = imageCount % imagesPerRow;
-          const imageX = margin + (col * (imageWidth + 10));
-          
+          const imageX = margin + col * (imageWidth + 10);
+
           // Start new row if needed
           if (col === 0 && imageCount > 0) {
             rowY += imageHeight + 40;
           }
-          
+
           // Check if we need a new page
           if (rowY + imageHeight > pageHeight - 100) {
             pdfDoc.addPage();
@@ -482,7 +439,7 @@ const sendPodPdf = async (req, res, next) => {
 
           // Add image border
           pdfDoc
-            .strokeColor('#e0e0e0')
+            .strokeColor("#e0e0e0")
             .lineWidth(1)
             .rect(imageX - 2, rowY - 2, imageWidth + 4, imageHeight + 24)
             .stroke();
@@ -490,45 +447,44 @@ const sendPodPdf = async (req, res, next) => {
           // Add image with proper sizing and positioning
           pdfDoc.image(imgBuffer, imageX, rowY, {
             fit: [imageWidth, imageHeight],
-            align: 'center',
-            valign: 'center'
+            align: "center",
+            valign: "center",
           });
 
           // Add image caption
           pdfDoc
-            .fillColor('#666666')
+            .fillColor("#666666")
             .fontSize(9)
-            .font('Helvetica')
+            .font("Helvetica")
             .text(`Image ${index + 1}`, imageX, rowY + imageHeight + 5, {
               width: imageWidth,
-              align: 'center'
+              align: "center",
             });
 
           imageCount++;
-          
         } catch (err) {
           console.warn(`Image ${index + 1} failed to load:`, err.message);
-          
+
           // Add placeholder for failed image
           const col = imageCount % imagesPerRow;
-          const imageX = margin + (col * (imageWidth + 10));
-          
+          const imageX = margin + col * (imageWidth + 10);
+
           if (col === 0 && imageCount > 0) {
             rowY += imageHeight + 40;
           }
-          
+
           pdfDoc
-            .fillColor('#f8f9fa')
+            .fillColor("#f8f9fa")
             .rect(imageX, rowY, imageWidth, imageHeight)
             .fill()
-            .strokeColor('#e0e0e0')
+            .strokeColor("#e0e0e0")
             .rect(imageX, rowY, imageWidth, imageHeight)
             .stroke()
-            .fillColor('#666666')
+            .fillColor("#666666")
             .fontSize(12)
-            .text('Image not available', imageX, rowY + imageHeight/2, {
+            .text("Image not available", imageX, rowY + imageHeight / 2, {
               width: imageWidth,
-              align: 'center'
+              align: "center",
             });
 
           imageCount++;
@@ -539,28 +495,26 @@ const sendPodPdf = async (req, res, next) => {
     // Footer function for all pages
     const addFooter = (pageNumber, totalPages) => {
       const footerY = pageHeight - 30;
-      
+
       // Footer background
       pdfDoc
-        .fillColor('#f8f9fa')
+        .fillColor("#f8f9fa")
         .rect(0, footerY - 10, pageWidth, 40)
         .fill();
 
       pdfDoc
-        .fillColor('#666666')
+        .fillColor("#666666")
         .fontSize(8)
-        .font('Helvetica')
+        .font("Helvetica")
+        .text(`Page ${pageNumber} of ${totalPages}`, margin, footerY, {
+          align: "center",
+          width: contentWidth,
+        })
         .text(
-          `Page ${pageNumber} of ${totalPages}`,
-          margin,
-          footerY,
-          { align: 'center', width: contentWidth }
-        )
-        .text(
-          'Direct Transport Solutions - Confidential Document',
+          "Direct Transport Solutions - Confidential Document",
           margin,
           footerY + 12,
-          { align: 'center', width: contentWidth }
+          { align: "center", width: contentWidth }
         );
     };
 
