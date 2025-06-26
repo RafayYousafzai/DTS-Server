@@ -180,8 +180,6 @@ const sendPodPdf = async (req, res, next) => {
             <ul>
                 <li><strong>Pickup:</strong> ${booking.pickupSuburb}</li>
                 <li><strong>Drop:</strong> ${booking.deliverySuburb}</li>
-                <li><strong>Distance:</strong> ${booking.distance} km</li>
-                <li><strong>Total (incl. GST):</strong> $${booking.totalPriceWithGST}</li>
             </ul>
         </div>
         
