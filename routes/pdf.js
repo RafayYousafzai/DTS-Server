@@ -1,7 +1,7 @@
 import { Router } from "express";
 const router = Router();
-import generatePdf from "../controllers/pdf/generatePdf.js";
+import sendPodPdf from "../controllers/pdf/sendPodPdf.js";
 
-router.post("/generate-pdf", generatePdf);
+router.post("/send-pod-pdf", sendPodPdf);
 
 export default router;

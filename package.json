@@ -17,8 +17,9 @@
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "firebase": "^11.0.2",
-    "html-pdf-node": "^1.0.8",
+    "get-stream": "^9.0.1",
     "joi": "^17.13.3",
-    "puppeteer-core": "^24.1.1"
+    "pdfkit": "^0.17.1",
+    "resend": "^4.6.0"
   }
 }
