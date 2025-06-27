@@ -264,11 +264,11 @@ const sendPodPdf = async (req, res, next) => {
                         <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 18px;">📦 Delivery Summary</h3>
                         <div class="details-grid">
                             <div class="detail-item">
-                                <div class="detail-label">Pickup Location</div>
+                                <div class="detail-label">Pickup</div>
                                 <div class="detail-value">${booking.pickupSuburb}</div>
                             </div>
                             <div class="detail-item">
-                                <div class="detail-label">Delivery Location</div>
+                                <div class="detail-label">Delivery</div>
                                 <div class="detail-value">${booking.deliverySuburb}</div>
                             </div>
                             <div class="detail-item">
@@ -596,17 +596,17 @@ const sendPodPdf = async (req, res, next) => {
 
     const serviceDetails = [
       { label: "Pickup Company", value: booking?.pickupCompanyName },
-      { label: "Delivery Company", value: booking?.dropCompanyName },
-      { label: "Pickup Address", value: booking?.address?.Origin?.label },
-      {
-        label: "Delivery Address",
-        value: booking?.address?.Destination?.label,
-      },
       { label: "Internal Reference 1", value: booking?.internalReference },
+      { label: "Pickup Address", value: booking?.address?.Origin?.label },
       { label: "Internal Reference 2", value: booking?.internalReference2 },
+      { label: "Delivery Company", value: booking?.dropCompanyName },
       {
         label: "Pickup Completed",
         value: formatDateTime(booking?.progressInformation?.pickedup),
+      },
+      {
+        label: "Delivery Address",
+        value: booking?.address?.Destination?.label,
       },
       {
         label: "Delivery Completed",
