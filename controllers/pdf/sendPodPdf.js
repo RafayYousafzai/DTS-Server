@@ -296,7 +296,7 @@ const sendPodPdf = async (req, res, next) => {
                 
                 <div class="footer">
                     <h3>Direct Transport Solutions</h3>
-                    <p>Professional Logistics & Transportation Services</p>
+                    <p>Direct Transport Solutions</p>
                     <p>📧 bookings@directtransport.com.au</p>
                     
                     <div class="disclaimer">
@@ -824,7 +824,7 @@ const sendPodPdf = async (req, res, next) => {
         .font("Helvetica")
         .fillColor(colors.lightText)
         .text(
-          "Professional Logistics & Transportation Services",
+          "Direct Transport Solutions",
           margin,
           footerY + 18
         )
