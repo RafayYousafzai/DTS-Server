@@ -526,7 +526,7 @@ const sendPodPdf = async (req, res, next) => {
     }
 
     // Add footer to page 1 - CONTROLLED PLACEMENT
-    const footerY = pageHeight - 100
+    const footerY = pageHeight - 70
     pdfDoc
       .strokeColor("#2280bf")
       .lineWidth(1)
@@ -630,7 +630,7 @@ const sendPodPdf = async (req, res, next) => {
       }
 
       // Add footer to page 2 - CONTROLLED PLACEMENT
-      const footerY2 = pageHeight - 100
+      const footerY2 = pageHeight - 70
       pdfDoc
         .strokeColor("#2280bf")
         .lineWidth(1)
