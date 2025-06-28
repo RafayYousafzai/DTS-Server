@@ -357,16 +357,32 @@ const sendPodPdf = async (req, res, next) => {
       .text("CUSTOMER INFORMATION", margin + 10, currentY + 5)
     currentY += 40
 
+    const labelColumnWidth = 200; // Fixed width for label column
+    const valueStartX = margin + labelColumnWidth + 10; // X position where values start
+    const maxValueWidth = contentWidth - labelColumnWidth - 10; // Available width for values
+    
     // Customer Details - CONTROLLED TEXT PLACEMENT
-    pdfDoc.fillColor("#2c3e50").fontSize(11).font("Helvetica")
-    pdfDoc.text(`Customer Name: ${booking.userName}`, margin, currentY, { lineBreak: false })
-    currentY += 20
-    pdfDoc.text(`Email Address: ${booking.userEmail}`, margin, currentY, { lineBreak: false })
-    currentY += 20
-    pdfDoc.text(`Booking Date: ${booking.date} at ${booking.time}`, margin, currentY, { lineBreak: false })
-    currentY += 20
-    pdfDoc.text(`Job Status: COMPLETED ✓`, margin, currentY, { lineBreak: false })
-    currentY += 40
+    pdfDoc.fillColor("#2c3e50").fontSize(11).font("Helvetica");
+
+    // Customer Name
+    pdfDoc.text(`Customer Name:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${booking.userName}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+
+    // Email Address
+    pdfDoc.text(`Email Address:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${booking.userEmail}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+
+    // Booking Date
+    pdfDoc.text(`Booking Date:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${booking.date} at ${booking.time}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+
+    // Job Status
+    pdfDoc.text(`Job Status:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`COMPLETED ✓`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 40;
 
     // Service Details Section
     pdfDoc
@@ -399,36 +415,58 @@ const sendPodPdf = async (req, res, next) => {
       })
     }
 
-    // Service Details - CONTROLLED TEXT PLACEMENT
-    pdfDoc.fillColor("#2c3e50").fontSize(11).font("Helvetica")
-    pdfDoc.text(`Pickup Company: ${booking?.pickupCompanyName || "N/A"}`, margin, currentY, { lineBreak: false })
-    currentY += 20
-    pdfDoc.text(`Pickup Address: ${booking?.address?.Origin?.label || "N/A"}`, margin, currentY, {
-      width: contentWidth,
-      height: 20,
-      ellipsis: true,
-    })
-    currentY += 20
-    pdfDoc.text(`Delivery Company: ${booking?.dropCompanyName || "N/A"}`, margin, currentY, { lineBreak: false })
-    currentY += 20
-    pdfDoc.text(`Delivery Address: ${booking?.address?.Destination?.label || "N/A"}`, margin, currentY, {
-      width: contentWidth,
-      height: 20,
-      ellipsis: true,
-    })
-    currentY += 20
-    pdfDoc.text(`Internal Reference 1: ${booking?.internalReference || "N/A"}`, margin, currentY, { lineBreak: false })
-    currentY += 20
-    pdfDoc.text(`Internal Reference 2: ${booking?.internalReference2 || "N/A"}`, margin, currentY, { lineBreak: false })
-    currentY += 20
-    pdfDoc.text(`Pickup Completed: ${formatDateTime(booking?.progressInformation?.pickedup)}`, margin, currentY, {
-      lineBreak: false,
-    })
-    currentY += 20
-    pdfDoc.text(`Delivery Completed: ${formatDateTime(booking?.progressInformation?.delivered)}`, margin, currentY, {
-      lineBreak: false,
-    })
-    currentY += 40
+   // Service Details - Two-column layout with fixed value start position
+    pdfDoc.fillColor("#2c3e50").fontSize(11).font("Helvetica");
+      
+    // Pickup Company
+    pdfDoc.text(`Pickup Company:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${booking?.pickupCompanyName || "N/A"}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+      
+    // Pickup Address
+    pdfDoc.text(`Pickup Address:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    const pickupAddress = booking?.address?.Origin?.label || "N/A";
+    const pickupAddressHeight = pdfDoc.heightOfString(pickupAddress, {
+      width: maxValueWidth
+    });
+    pdfDoc.text(pickupAddress, valueStartX, currentY, {
+      width: maxValueWidth
+    });
+    currentY += Math.ceil(pickupAddressHeight) + 8; 
+    
+    // Delivery Company
+    pdfDoc.text(`Delivery Company:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${booking?.dropCompanyName || "N/A"}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+    
+    // Delivery Address
+    pdfDoc.text(`Delivery Address:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    const deliveryAddress = booking?.address?.Destination?.label || "N/A";
+    const deliveryAddressHeight = pdfDoc.heightOfString(deliveryAddress, {
+      width: maxValueWidth
+    });
+    pdfDoc.text(deliveryAddress, valueStartX, currentY, {
+      width: maxValueWidth
+    });
+    currentY += Math.ceil(deliveryAddressHeight) + 8;
+    
+    // Internal References
+    pdfDoc.text(`Internal Reference 1:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${booking?.internalReference || "N/A"}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+    
+    pdfDoc.text(`Internal Reference 2:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${booking?.internalReference2 || "N/A"}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+    
+    // Timestamps
+    pdfDoc.text(`Pickup Completed:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${formatDateTime(booking?.progressInformation?.pickedup)}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 20;
+    
+    pdfDoc.text(`Delivery Completed:`, margin, currentY, { width: labelColumnWidth, lineBreak: false });
+    pdfDoc.text(`${formatDateTime(booking?.progressInformation?.delivered)}`, valueStartX, currentY, { width: maxValueWidth });
+    currentY += 40;
 
     // Signature Section - ONLY IF THERE'S SPACE
     if (booking.signUrl && currentY + 180 < pageHeight - 60) {
