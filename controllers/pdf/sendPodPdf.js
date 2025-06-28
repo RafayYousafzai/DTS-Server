@@ -1,87 +1,82 @@
-import { getFirestore, doc as firestoreDoc, getDoc } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import PDFDocument from "pdfkit";
-import getStream from "get-stream";
-import axios from "axios";
-import app, { authenticate } from "../../lib/firebase/firebaseConfig.js";
-import { Resend } from "resend";
+import { getFirestore, doc as firestoreDoc, getDoc } from "firebase/firestore"
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import PDFDocument from "pdfkit"
+import axios from "axios"
+import app, { authenticate } from "../../lib/firebase/firebaseConfig.js"
+import { Resend } from "resend"
 
-const resend = new Resend("re_PFXtcaog_JKb5YwCbLfq2epPBK729Tgja");
-
-const db = getFirestore(app);
-const storage = getStorage(app);
+const resend = new Resend("re_PFXtcaog_JKb5YwCbLfq2epPBK729Tgja")
+const db = getFirestore(app)
+const storage = getStorage(app)
 
 const fetchImageBuffer = async (url) => {
-  const res = await axios.get(url, { responseType: "arraybuffer" });
-  return Buffer.from(res.data, "binary");
-};
+  const res = await axios.get(url, { responseType: "arraybuffer" })
+  return Buffer.from(res.data, "binary")
+}
 
 const sendPodPdf = async (req, res, next) => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId } = req.body
+    await authenticate()
 
-    await authenticate();
-
-    const bookingRef = firestoreDoc(db, "place_bookings", bookingId);
-    const bookingSnap = await getDoc(bookingRef);
+    const bookingRef = firestoreDoc(db, "place_bookings", bookingId)
+    const bookingSnap = await getDoc(bookingRef)
 
     if (!bookingSnap.exists()) {
-      return res.status(404).json({ message: "Booking not found" });
+      return res.status(404).json({ message: "Booking not found" })
     }
 
-    const booking = bookingSnap.data();
+    const booking = bookingSnap.data()
 
     if (booking.currentStatus !== "delivered") {
-      return res.status(400).json({ message: "Booking is not delivered yet" });
+      return res.status(400).json({ message: "Booking is not delivered yet" })
     }
 
-    const userRef = firestoreDoc(db, "users", booking.userEmail);
-    const userSnap = await getDoc(userRef);
+    const userRef = firestoreDoc(db, "users", booking.userEmail)
+    const userSnap = await getDoc(userRef)
 
     if (!userSnap.exists()) {
-      return res.status(404).json({ message: "user not found" });
+      return res.status(404).json({ message: "user not found" })
     }
 
-    const user = userSnap.data();
+    const user = userSnap.data()
 
-    if (
-      booking.currentStatus !== "delivered" ||
-      user.sendPodEmails !== true ||
-      !user.podsEmail
-    ) {
-      return res.status(400).json({ message: "Booking is not delivered yet" });
+    if (booking.currentStatus !== "delivered" || user.sendPodEmails !== true || !user.podsEmail) {
+      return res.status(400).json({ message: "Booking is not delivered yet" })
     }
 
-    console.log("User POD email are active", user.podsEmail);
+    console.log("User POD email are active", user.podsEmail)
 
-    // Generate Professional PDF Design with Fixed Spacing
+    // FIXED PDF - PREVENT AUTOMATIC PAGE BREAKS
     const pdfDoc = new PDFDocument({
       size: "A4",
       margin: 50,
-      bufferPages: true,
+      autoFirstPage: false, // Prevent automatic page creation
       info: {
         Title: `Proof of Delivery - ${booking.docId}`,
         Author: "Direct Transport Solutions",
         Subject: "Proof of Delivery Document",
         Creator: "Direct Transport Solutions",
       },
-    });
-    const buffers = [];
+    })
 
-    pdfDoc.on("data", buffers.push.bind(buffers));
+    // Manually add the first page
+    pdfDoc.addPage()
+
+    const buffers = []
+    pdfDoc.on("data", buffers.push.bind(buffers))
     pdfDoc.on("end", async () => {
-      const pdfBuffer = Buffer.concat(buffers);
-
-      const fileName = `pods/${bookingId}.pdf`;
-      const storageRef = ref(storage, fileName);
+      const pdfBuffer = Buffer.concat(buffers)
+      const fileName = `pods/${bookingId}.pdf`
+      const storageRef = ref(storage, fileName)
 
       await uploadBytes(storageRef, pdfBuffer, {
         contentType: "application/pdf",
-      });
+      })
 
-      const downloadURL = await getDownloadURL(storageRef);
+      const downloadURL = await getDownloadURL(storageRef)
 
-      // Professional Email HTML Template (keeping the same)
+      // Email HTML (same as original)
       const emailHtml = `
         <!DOCTYPE html>
         <html>
@@ -110,16 +105,6 @@ const sendPodPdf = async (req, res, next) => {
                     padding: 40px 30px;
                     text-align: center;
                     position: relative;
-                }
-                .header::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-                    opacity: 0.3;
                 }
                 .header h1 {
                     color: #ffffff;
@@ -207,10 +192,6 @@ const sendPodPdf = async (req, res, next) => {
                     font-size: 16px;
                     box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
                     transition: all 0.3s ease;
-                }
-                .download-btn:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
                 }
                 .footer {
                     background: #2c3e50;
@@ -307,7 +288,7 @@ const sendPodPdf = async (req, res, next) => {
             </div>
         </body>
         </html>
-      `;
+      `
 
       // Send email via Resend
       const emailRes = await resend.emails.send({
@@ -321,269 +302,93 @@ const sendPodPdf = async (req, res, next) => {
             content: pdfBuffer.toString("base64"),
           },
         ],
-      });
+      })
 
-      console.log("Email sent:", emailRes);
-
+      console.log("Email sent:", emailRes)
       return res.status(200).json({
         message: "POD PDF created and email sent",
         downloadURL,
         emailHtml,
-      });
-    });
+      })
+    })
 
-    // FIXED PROFESSIONAL PDF DESIGN WITH PROPER SPACING
-    const pageWidth = pdfDoc.page.width;
-    const pageHeight = pdfDoc.page.height;
-    const margin = 50;
-    const contentWidth = pageWidth - margin * 2;
+    // CONTROLLED PDF GENERATION - NO AUTOMATIC PAGE BREAKS
+    const pageWidth = pdfDoc.page.width
+    const pageHeight = pdfDoc.page.height
+    const margin = 50
+    const contentWidth = pageWidth - margin * 2
 
-    // Color scheme
-    const colors = {
-      primary: "#3498db",
-      secondary: "#2a5298",
-      accent: "#2280bf",
-      text: "#2c3e50",
-      lightText: "#5a6c7d",
-      border: "#e1e8ed",
-      background: "#f8f9fa",
-      success: "#27ae60",
-      white: "#ffffff",
-    };
+    let currentY = 0
 
-    // Professional header with gradient and logo
-    const addProfessionalHeader = async () => {
-      const COMPANY_LOGO_URL =
-        "https://www.directtransport.com.au/dts/Logo.png";
+    console.log("Starting controlled PDF generation...")
 
-      // Gradient header background
-      const gradient = pdfDoc.linearGradient(0, 0, pageWidth, 120);
-      gradient.stop(0, colors.white).stop(1, colors.white);
+    // === PAGE 1 CONTENT ===
 
-      pdfDoc
-        .fillAndStroke(gradient, colors.primary)
-        .rect(0, 0, pageWidth, 120)
-        .fill();
+    // Header
+    pdfDoc.fillColor("#3498db").rect(0, 0, pageWidth, 100).fill()
+    pdfDoc.fillColor("#ffffff").fontSize(24).font("Helvetica-Bold").text("DIRECT TRANSPORT SOLUTIONS", margin, 30)
+    currentY = 120
 
-      // Subtle pattern overlay
-      pdfDoc.fillColor(colors.white).opacity(0.1);
-
-      for (let i = 0; i < pageWidth; i += 20) {
-        for (let j = 0; j < 120; j += 20) {
-          pdfDoc.circle(i, j, 1).fill();
-        }
-      }
-
-      pdfDoc.opacity(1);
-
-      try {
-        const logoBuffer = await fetchImageBuffer(COMPANY_LOGO_URL);
-        pdfDoc.image(logoBuffer, margin, 25, {
-          width: 180,
-          height: 70,
-          align: "center",
-        });
-      } catch (err) {
-        console.warn("Logo failed to load:", err.message);
-        // Fallback company name
-        pdfDoc
-          .fillColor(colors.white)
-          .fontSize(24)
-          .font("Helvetica-Bold")
-          .text("DIRECT TRANSPORT", margin, 40)
-          .fontSize(14)
-          .font("Helvetica")
-          .text("SOLUTIONS", margin, 65);
-      }
-
-      return 140;
-    };
-
-    // Professional section with styled background
-    const addStyledSection = (
-      title,
-      y,
-      backgroundColor = colors.background
-    ) => {
-      // Section background
-      pdfDoc
-        .fillColor(backgroundColor)
-        .rect(margin - 10, y - 5, contentWidth + 20, 35)
-        .fill();
-
-      // Left accent bar
-      pdfDoc
-        .fillColor(colors.accent)
-        .rect(margin - 10, y - 5, 4, 35)
-        .fill();
-
-      // Section title
-      pdfDoc
-        .fillColor(colors.text)
-        .fontSize(16)
-        .font("Helvetica-Bold")
-        .text(title, margin + 10, y + 8);
-
-      return y + 45;
-    };
-
-    // FIXED: Enhanced detail list with proper spacing calculations
-    const addDetailList = (items, startY, columns = 1) => {
-      let currentY = startY;
-      const columnWidth = Math.floor(
-        (contentWidth - (columns - 1) * 30) / columns
-      ); // Add gap between columns
-      const labelHeight = 15; // Height for label
-      const valueHeight = 20; // Height for value
-      const itemSpacing = 10; // Space between items
-      const totalItemHeight = labelHeight + valueHeight + itemSpacing;
-
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const column = i % columns;
-        const row = Math.floor(i / columns);
-
-        const x = margin + column * (columnWidth + 30); // 30px gap between columns
-        const y = currentY + row * totalItemHeight;
-
-        // Check if we need a new page
-        if (y + totalItemHeight > pageHeight - 100) {
-          pdfDoc.addPage();
-          currentY = 50;
-          const newRow =
-            Math.floor(i / columns) - Math.floor(items.length / columns);
-          const newY = currentY + newRow * totalItemHeight;
-
-          // Recalculate positions for new page
-          const adjustedY =
-            currentY +
-            (i - Math.floor(i / columns) * columns) * totalItemHeight;
-
-          // Label
-          pdfDoc
-            .fillColor(colors.lightText)
-            .fontSize(10)
-            .font("Helvetica-Bold")
-            .text(item.label.toUpperCase(), x, adjustedY, {
-              width: columnWidth - 10,
-              lineBreak: false,
-            });
-
-          // Value with proper wrapping
-          const value = item.value || "N/A";
-          pdfDoc
-            .fillColor(colors.text)
-            .fontSize(11)
-            .font("Helvetica")
-            .text(value, x, adjustedY + labelHeight, {
-              width: columnWidth - 10,
-              height: valueHeight,
-              ellipsis: true,
-            });
-        } else {
-          // Label
-          pdfDoc
-            .fillColor(colors.lightText)
-            .fontSize(10)
-            .font("Helvetica-Bold")
-            .text(item.label.toUpperCase(), x, y, {
-              width: columnWidth - 10,
-              lineBreak: false,
-            });
-
-          // Value with proper wrapping
-          const value = item.value || "N/A";
-          pdfDoc
-            .fillColor(colors.text)
-            .fontSize(11)
-            .font("Helvetica")
-            .text(value, x, y + labelHeight, {
-              width: columnWidth - 10,
-              height: valueHeight,
-              ellipsis: true,
-            });
-        }
-
-        // Add separator line for each row (not each item)
-        if (column === columns - 1 && i < items.length - 1) {
-          const separatorY = y + totalItemHeight - itemSpacing / 2;
-          pdfDoc
-            .strokeColor(colors.border)
-            .lineWidth(0.5)
-            .moveTo(margin, separatorY)
-            .lineTo(margin + contentWidth, separatorY)
-            .stroke();
-        }
-      }
-
-      const totalRows = Math.ceil(items.length / columns);
-      return currentY + totalRows * totalItemHeight + 20;
-    };
-
-    // Professional status badge
-    const addStatusBadge = (text, x, y, width = 200) => {
-      const badgeHeight = 40;
-
-      // Badge background with gradient
-      const badgeGradient = pdfDoc.linearGradient(
-        x,
-        y,
-        x + width,
-        y + badgeHeight
-      );
-      badgeGradient.stop(0, "#457b9d").stop(1, "#457b9d");
-
-      pdfDoc
-        .fillAndStroke(badgeGradient, colors.success)
-        .roundedRect(x, y, width, badgeHeight, 20)
-        .fill();
-
-      // Badge text
-      pdfDoc
-        .fillColor(colors.white)
-        .fontSize(14)
-        .font("Helvetica-Bold")
-        .text(text, x, y + 13, {
-          width: width,
-          align: "center",
-        });
-
-      return y + badgeHeight + 30; // Increased spacing after badge
-    };
-
-    // Start PDF generation
-    let currentY = await addProfessionalHeader();
-
-    // Status badge
-    currentY = addStatusBadge(
-      `JOB #${booking.docId}`,
-      (pageWidth - 200) / 2,
-      currentY
-    );
+    // Job Badge
+    const badgeWidth = 200
+    const badgeHeight = 40
+    const badgeX = (pageWidth - badgeWidth) / 2
+    pdfDoc.fillColor("#2280bf").roundedRect(badgeX, currentY, badgeWidth, badgeHeight, 20).fill()
+    pdfDoc
+      .fillColor("#ffffff")
+      .fontSize(14)
+      .font("Helvetica-Bold")
+      .text(`JOB #${booking.docId}`, badgeX, currentY + 13, { width: badgeWidth, align: "center" })
+    currentY += 70
 
     // Customer Information Section
-    currentY = addStyledSection("CUSTOMER INFORMATION", currentY);
+    pdfDoc
+      .fillColor("#f8f9fa")
+      .rect(margin - 10, currentY - 5, contentWidth + 20, 30)
+      .fill()
+    pdfDoc
+      .fillColor("#2280bf")
+      .rect(margin - 10, currentY - 5, 4, 30)
+      .fill()
+    pdfDoc
+      .fillColor("#2c3e50")
+      .fontSize(16)
+      .font("Helvetica-Bold")
+      .text("CUSTOMER INFORMATION", margin + 10, currentY + 5)
+    currentY += 40
 
-    const customerDetails = [
-      { label: "Customer Name", value: booking.userName },
-      { label: "Email Address", value: booking.userEmail },
-      { label: "Booking Date", value: `${booking.date} at ${booking.time}` },
-      { label: "Job Status", value: "COMPLETED ✓" },
-    ];
-
-    currentY = addDetailList(customerDetails, currentY, 2);
-
-    // Add extra spacing between sections
-    currentY += 20;
+    // Customer Details - CONTROLLED TEXT PLACEMENT
+    pdfDoc.fillColor("#2c3e50").fontSize(11).font("Helvetica")
+    pdfDoc.text(`Customer Name: ${booking.userName}`, margin, currentY, { lineBreak: false })
+    currentY += 20
+    pdfDoc.text(`Email Address: ${booking.userEmail}`, margin, currentY, { lineBreak: false })
+    currentY += 20
+    pdfDoc.text(`Booking Date: ${booking.date} at ${booking.time}`, margin, currentY, { lineBreak: false })
+    currentY += 20
+    pdfDoc.text(`Job Status: COMPLETED ✓`, margin, currentY, { lineBreak: false })
+    currentY += 40
 
     // Service Details Section
-    currentY = addStyledSection("SERVICE DETAILS", currentY);
+    pdfDoc
+      .fillColor("#f8f9fa")
+      .rect(margin - 10, currentY - 5, contentWidth + 20, 30)
+      .fill()
+    pdfDoc
+      .fillColor("#2280bf")
+      .rect(margin - 10, currentY - 5, 4, 30)
+      .fill()
+    pdfDoc
+      .fillColor("#2c3e50")
+      .fontSize(16)
+      .font("Helvetica-Bold")
+      .text("SERVICE DETAILS", margin + 10, currentY + 5)
+    currentY += 40
 
+    // Format date helper
     const formatDateTime = (dateString) => {
-      if (!dateString) return "Not Available";
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "Invalid Date";
-
+      if (!dateString) return "Not Available"
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return "Invalid Date"
       return date.toLocaleString("en-AU", {
         day: "2-digit",
         month: "2-digit",
@@ -591,294 +396,224 @@ const sendPodPdf = async (req, res, next) => {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
-      });
-    };
+      })
+    }
 
-    const serviceDetails = [
-      { label: "Pickup Company", value: booking?.pickupCompanyName },
-      { label: "Internal Reference 1", value: booking?.internalReference },
-      { label: "Pickup Address", value: booking?.address?.Origin?.label },
-      { label: "Internal Reference 2", value: booking?.internalReference2 },
-      { label: "Delivery Company", value: booking?.dropCompanyName },
-      {
-        label: "Pickup Completed",
-        value: formatDateTime(booking?.progressInformation?.pickedup),
-      },
-      {
-        label: "Delivery Address",
-        value: booking?.address?.Destination?.label,
-      },
-      {
-        label: "Delivery Completed",
-        value: formatDateTime(booking?.progressInformation?.delivered),
-      },
-    ];
+    // Service Details - CONTROLLED TEXT PLACEMENT
+    pdfDoc.fillColor("#2c3e50").fontSize(11).font("Helvetica")
+    pdfDoc.text(`Pickup Company: ${booking?.pickupCompanyName || "N/A"}`, margin, currentY, { lineBreak: false })
+    currentY += 20
+    pdfDoc.text(`Pickup Address: ${booking?.address?.Origin?.label || "N/A"}`, margin, currentY, {
+      width: contentWidth,
+      height: 20,
+      ellipsis: true,
+    })
+    currentY += 20
+    pdfDoc.text(`Delivery Company: ${booking?.dropCompanyName || "N/A"}`, margin, currentY, { lineBreak: false })
+    currentY += 20
+    pdfDoc.text(`Delivery Address: ${booking?.address?.Destination?.label || "N/A"}`, margin, currentY, {
+      width: contentWidth,
+      height: 20,
+      ellipsis: true,
+    })
+    currentY += 20
+    pdfDoc.text(`Internal Reference 1: ${booking?.internalReference || "N/A"}`, margin, currentY, { lineBreak: false })
+    currentY += 20
+    pdfDoc.text(`Internal Reference 2: ${booking?.internalReference2 || "N/A"}`, margin, currentY, { lineBreak: false })
+    currentY += 20
+    pdfDoc.text(`Pickup Completed: ${formatDateTime(booking?.progressInformation?.pickedup)}`, margin, currentY, {
+      lineBreak: false,
+    })
+    currentY += 20
+    pdfDoc.text(`Delivery Completed: ${formatDateTime(booking?.progressInformation?.delivered)}`, margin, currentY, {
+      lineBreak: false,
+    })
+    currentY += 40
 
-    currentY = addDetailList(serviceDetails, currentY, 2);
-
-    // Add extra spacing before signature section
-    currentY += 30;
-
-    // Customer Signature Section
-    if (booking.signUrl) {
-      if (currentY > pageHeight - 250) {
-        pdfDoc.addPage();
-        currentY = 50;
-      }
-
-      currentY = addStyledSection("CUSTOMER SIGNATURE", currentY);
+    // Signature Section - ONLY IF THERE'S SPACE
+    if (booking.signUrl && currentY + 180 < pageHeight - 60) {
+      pdfDoc
+        .fillColor("#f8f9fa")
+        .rect(margin - 10, currentY - 5, contentWidth + 20, 30)
+        .fill()
+      pdfDoc
+        .fillColor("#2280bf")
+        .rect(margin - 10, currentY - 5, 4, 30)
+        .fill()
+      pdfDoc
+        .fillColor("#2c3e50")
+        .fontSize(16)
+        .font("Helvetica-Bold")
+        .text("CUSTOMER SIGNATURE", margin + 10, currentY + 5)
+      currentY += 40
 
       try {
-        const signBuffer = await fetchImageBuffer(booking.signUrl);
+        const signBuffer = await fetchImageBuffer(booking.signUrl)
 
-        // Professional signature box
+        // Signature box
         pdfDoc
-          .fillColor(colors.white)
-          .strokeColor(colors.border)
-          .lineWidth(2)
-          .roundedRect(margin, currentY, contentWidth, 120, 8)
-          .fillAndStroke();
+          .fillColor("#ffffff")
+          .strokeColor("#e1e8ed")
+          .lineWidth(1)
+          .rect(margin, currentY, contentWidth, 100)
+          .fillAndStroke()
 
         // Signature image
-        pdfDoc.image(signBuffer, margin + 15, currentY + 15, {
-          fit: [contentWidth - 30, 90],
+        pdfDoc.image(signBuffer, margin + 10, currentY + 10, {
+          fit: [contentWidth - 20, 80],
           align: "center",
           valign: "center",
-        });
+        })
 
-        currentY += 140;
+        currentY += 110
 
-        // Signature details with proper spacing
-        pdfDoc
-          .fillColor(colors.text)
-          .fontSize(12)
-          .font("Helvetica-Bold")
-          .text(`Digitally signed by: ${booking.userName}`, margin, currentY);
+        // Signature details - CONTROLLED PLACEMENT
+        pdfDoc.fillColor("#2c3e50").fontSize(10).font("Helvetica")
+        pdfDoc.text(`Signed by: ${booking.userName}`, margin, currentY, { lineBreak: false })
+        pdfDoc.text(`Date: ${formatDateTime(booking?.progressInformation?.delivered)}`, margin, currentY + 15, {
+          lineBreak: false,
+        })
+        currentY += 40
 
-        currentY += 20; // Add spacing between lines
-
-        pdfDoc
-          .fontSize(10)
-          .font("Helvetica")
-          .fillColor(colors.lightText)
-          .text(
-            `Signature captured on: ${formatDateTime(booking?.progressInformation?.delivered)}`,
-            margin,
-            currentY
-          );
-
-        currentY += 40;
+        console.log("Signature added to page 1")
       } catch (err) {
-        console.warn("Signature failed to load:", err.message);
-
-        // Error message box
-        pdfDoc
-          .fillColor("#fff5f5")
-          .strokeColor("#fed7d7")
-          .lineWidth(1)
-          .roundedRect(margin, currentY, contentWidth, 40, 4)
-          .fillAndStroke();
-
+        console.warn("Signature failed to load:", err.message)
         pdfDoc
           .fillColor("#e53e3e")
           .fontSize(11)
           .font("Helvetica")
-          .text(
-            "⚠ Signature could not be loaded from server",
-            margin + 15,
-            currentY + 15
-          );
-
-        currentY += 60;
+          .text("⚠ Signature could not be loaded", margin, currentY, { lineBreak: false })
+        currentY += 30
       }
     }
 
-    // Delivery Photos Section
+    // Add footer to page 1 - CONTROLLED PLACEMENT
+    const footerY = pageHeight - 100
+    pdfDoc
+      .strokeColor("#2280bf")
+      .lineWidth(1)
+      .moveTo(margin, footerY)
+      .lineTo(pageWidth - margin, footerY)
+      .stroke()
+    pdfDoc.fillColor("#5a6c7d").fontSize(8).font("Helvetica")
+    pdfDoc.text("Direct Transport Solutions | bookings@directtransport.com.au", margin, footerY + 10, {
+      lineBreak: false,
+    })
+    pdfDoc.text("Page 1", pageWidth - margin - 50, footerY + 10, { width: 50, align: "right", lineBreak: false })
+
+    // Images Section - ONLY ADD PAGE 2 IF IMAGES EXIST
     if (Array.isArray(booking.images) && booking.images.length > 0) {
-      if (currentY > pageHeight - 350) {
-        pdfDoc.addPage();
-        currentY = 50;
-      }
+      console.log(`Adding page 2 for ${booking.images.length} images...`)
 
-      currentY = addStyledSection("DELIVERY PHOTOGRAPHS", currentY);
+      // MANUALLY add page 2
+      pdfDoc.addPage()
+      currentY = 50
 
-      const imagesPerRow = 2;
-      const imageSpacing = 20; // Increased spacing between images
-      const imageWidth = (contentWidth - imageSpacing) / imagesPerRow;
-      const imageHeight = imageWidth * 0.75;
-
-      let imageCount = 0;
-      let rowY = currentY;
-
-      for (const [index, url] of booking.images.entries()) {
-        try {
-          const imgBuffer = await fetchImageBuffer(url);
-
-          const col = imageCount % imagesPerRow;
-          const imageX = margin + col * (imageWidth + imageSpacing);
-
-          if (col === 0 && imageCount > 0) {
-            rowY += imageHeight + 60; // Increased spacing between rows
-          }
-
-          if (rowY + imageHeight + 60 > pageHeight - 80) {
-            pdfDoc.addPage();
-            rowY = 50;
-          }
-
-          // Professional image frame
-          pdfDoc
-            .fillColor(colors.white)
-            .strokeColor(colors.border)
-            .lineWidth(2)
-            .roundedRect(imageX, rowY, imageWidth, imageHeight + 40, 8)
-            .fillAndStroke();
-
-          // Image
-          pdfDoc.image(imgBuffer, imageX + 8, rowY + 8, {
-            fit: [imageWidth - 16, imageHeight - 16],
-            align: "center",
-            valign: "center",
-          });
-
-          // Professional caption with proper spacing
-          pdfDoc
-            .fillColor(colors.text)
-            .fontSize(11)
-            .font("Helvetica-Bold")
-            .text(`Photo ${index + 1}`, imageX + 8, rowY + imageHeight + 12, {
-              width: imageWidth - 16,
-              align: "center",
-            });
-
-          pdfDoc
-            .fontSize(9)
-            .font("Helvetica")
-            .fillColor(colors.lightText)
-            .text("Delivery Evidence", imageX + 8, rowY + imageHeight + 26, {
-              width: imageWidth - 16,
-              align: "center",
-            });
-
-          imageCount++;
-        } catch (err) {
-          console.warn(`Image ${index + 1} failed to load:`, err.message);
-
-          // Error placeholder with proper spacing
-          const imageX =
-            margin + (index % imagesPerRow) * (imageWidth + imageSpacing); // Declare imageX here
-
-          pdfDoc
-            .fillColor("#fff5f5")
-            .strokeColor("#fed7d7")
-            .lineWidth(1)
-            .roundedRect(imageX, rowY, imageWidth, imageHeight + 40, 8)
-            .fillAndStroke();
-
-          pdfDoc
-            .fillColor("#e53e3e")
-            .fontSize(10)
-            .font("Helvetica")
-            .text(
-              `⚠ Photo ${index + 1}\nUnavailable`,
-              imageX + 15,
-              rowY + imageHeight / 2,
-              {
-                width: imageWidth - 30,
-                align: "center",
-              }
-            );
-
-          imageCount++;
-        }
-      }
-    }
-
-    // Professional footer for all pages
-    const addProfessionalFooter = (pageNumber, totalPages) => {
-      const footerY = pageHeight - 60;
-
-      // Footer background
+      // Add section header
       pdfDoc
-        .fillColor(colors.background)
-        .rect(0, footerY - 10, pageWidth, 70)
-        .fill();
-
-      // Footer line
+        .fillColor("#f8f9fa")
+        .rect(margin - 10, currentY - 5, contentWidth + 20, 30)
+        .fill()
       pdfDoc
-        .strokeColor(colors.accent)
-        .lineWidth(2)
-        .moveTo(margin, footerY - 5)
-        .lineTo(pageWidth - margin, footerY - 5)
-        .stroke();
-
-      // Company info with proper spacing
+        .fillColor("#2280bf")
+        .rect(margin - 10, currentY - 5, 4, 30)
+        .fill()
       pdfDoc
-        .fillColor(colors.text)
-        .fontSize(10)
+        .fillColor("#2c3e50")
+        .fontSize(16)
         .font("Helvetica-Bold")
-        .text("Direct Transport Solutions", margin, footerY + 5);
+        .text("DELIVERY PHOTOGRAPHS", margin + 10, currentY + 5)
+      currentY += 40
 
-      pdfDoc
-        .fontSize(8)
-        .font("Helvetica")
-        .fillColor(colors.lightText)
-        .text(
-          "Direct Transport Solutions",
-          margin,
-          footerY + 18
-        )
-        .text("📧 bookings@directtransport.com.au", margin, footerY + 30);
+      const imageWidth = (contentWidth - 20) / 2 // 2 images per row
+      const imageHeight = imageWidth * 0.6
 
-      // Page numbers
-      pdfDoc
-        .fillColor(colors.text)
-        .fontSize(9)
-        .font("Helvetica")
-        .text(
-          `Page ${pageNumber} of ${totalPages}`,
-          pageWidth - margin - 80,
-          footerY + 5,
-          {
-            width: 80,
-            align: "right",
+      // Process images in pairs - NO ADDITIONAL PAGE BREAKS
+      for (let i = 0; i < booking.images.length; i += 2) {
+        // Process up to 2 images in this row
+        for (let j = 0; j < 2 && i + j < booking.images.length; j++) {
+          const imageIndex = i + j
+          const imageUrl = booking.images[imageIndex]
+          const imageX = margin + j * (imageWidth + 20)
+
+          try {
+            const imgBuffer = await fetchImageBuffer(imageUrl)
+
+            // Image border
+            pdfDoc
+              .fillColor("#ffffff")
+              .strokeColor("#e1e8ed")
+              .lineWidth(1)
+              .rect(imageX, currentY, imageWidth, imageHeight + 30)
+              .fillAndStroke()
+
+            // Image
+            pdfDoc.image(imgBuffer, imageX + 5, currentY + 5, {
+              fit: [imageWidth - 10, imageHeight - 10],
+              align: "center",
+              valign: "center",
+            })
+
+            // Caption - CONTROLLED PLACEMENT
+            pdfDoc
+              .fillColor("#2c3e50")
+              .fontSize(9)
+              .font("Helvetica-Bold")
+              .text(`Photo ${imageIndex + 1}`, imageX + 5, currentY + imageHeight + 10, {
+                width: imageWidth - 10,
+                align: "center",
+                lineBreak: false,
+              })
+
+            console.log(`Image ${imageIndex + 1} added successfully`)
+          } catch (err) {
+            console.warn(`Image ${imageIndex + 1} failed to load:`, err.message)
+
+            // Error placeholder
+            pdfDoc
+              .fillColor("#fff5f5")
+              .strokeColor("#fed7d7")
+              .lineWidth(1)
+              .rect(imageX, currentY, imageWidth, imageHeight + 30)
+              .fillAndStroke()
+            pdfDoc
+              .fillColor("#e53e3e")
+              .fontSize(10)
+              .font("Helvetica")
+              .text(`Photo ${imageIndex + 1}\nUnavailable`, imageX + 10, currentY + imageHeight / 2, {
+                width: imageWidth - 20,
+                align: "center",
+                lineBreak: false,
+              })
           }
-        );
-
-      // Confidential notice
-      pdfDoc
-        .fillColor(colors.lightText)
-        .fontSize(8)
-        .text("CONFIDENTIAL DOCUMENT", pageWidth - margin - 120, footerY + 18, {
-          width: 120,
-          align: "right",
-        });
-
-      // Generation timestamp
-      const now = new Date();
-      pdfDoc.text(
-        `Generated: ${now.toLocaleString("en-AU")}`,
-        pageWidth - margin - 150,
-        footerY + 30,
-        {
-          width: 150,
-          align: "right",
         }
-      );
-    };
 
-    // Apply professional footer to all pages
-    const pages = pdfDoc.bufferedPageRange();
-    for (let i = 0; i < pages.count; i++) {
-      pdfDoc.switchToPage(i);
-      addProfessionalFooter(i + 1, pages.count);
+        currentY += imageHeight + 50 // Move to next row
+      }
+
+      // Add footer to page 2 - CONTROLLED PLACEMENT
+      const footerY2 = pageHeight - 100
+      pdfDoc
+        .strokeColor("#2280bf")
+        .lineWidth(1)
+        .moveTo(margin, footerY2)
+        .lineTo(pageWidth - margin, footerY2)
+        .stroke()
+      pdfDoc.fillColor("#5a6c7d").fontSize(8).font("Helvetica")
+      pdfDoc.text("Direct Transport Solutions | bookings@directtransport.com.au", margin, footerY2 + 10, {
+        lineBreak: false,
+      })
+      pdfDoc.text("Page 2", pageWidth - margin - 50, footerY2 + 10, { width: 50, align: "right", lineBreak: false })
+    } else {
+      console.log("No images to process, staying on page 1")
     }
 
-    pdfDoc.end();
+    console.log("PDF generation complete - Should be exactly 1-2 pages")
+    pdfDoc.end()
   } catch (error) {
-    console.error("Error in sendPodPdf:", error);
-    return res.status(500).json({ message: error.message });
+    console.error("Error in sendPodPdf:", error)
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
-export default sendPodPdf;
+export default sendPodPdf
